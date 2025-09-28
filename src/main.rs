@@ -1,6 +1,5 @@
 use gage::window;
-use gage::engine::state::State;
-use gage::engine::bus::Bus;
+use gage::engine::types::{MessageQueue, EngineCvar};
 use gage::colog;
 
 use std::sync::{Arc, Mutex};
@@ -9,18 +8,20 @@ use std::sync::{Arc, Mutex};
 fn main() {
     colog::init();
 
-    let mut state: Arc<Mutex<State>> = Arc::new(Mutex::new(State::new()));
-    let mut bus: Arc<Mutex<Bus>> = Arc::new(Mutex::new(Bus::new()));
+    let mut cvar = EngineCvar::new();
+    let mut message_queue = MessageQueue::new();
     let mut window = window::Window::new(
         800,
         600,
         String::from("gage_sandbox")
     );
-    window.register(state.clone(), bus.clone());
 
     while window.running() {
-        window.update(state.clone(), bus.clone());
+        window.update(&mut message_queue);
 
-        bus.lock().unwrap().dispatch();
+        //Dispatch message
+        while let Some(event) = message_queue.pop_front() {
+            window.on_event(&event);
+        }
     }
 }
