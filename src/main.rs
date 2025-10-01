@@ -3,7 +3,7 @@ use gage::engine::types::{MessageQueue, EngineCvar, CVarValue, Message};
 use gage::colog;
 use gage::log;
 use gage::glfw;
-
+use gage::uuid;
 
 fn error_callback(error: glfw::Error, str: String) {
     log::error!("GLFW error: {:?}, {}", error, str);
@@ -12,9 +12,10 @@ fn error_callback(error: glfw::Error, str: String) {
 fn main() {
     colog::init();
 
-    let mut width = 1900;
-    let mut height = 600;
+    let mut width = 1600;
+    let mut height = 900;
     let title = "Sandbox !";
+    
 
     let mut cvar = EngineCvar::new();
     let mut message_queue = MessageQueue::new();
@@ -36,7 +37,7 @@ fn main() {
     let mut renderer = renderer::Renderer::new(&window, &mut cvar);
 
     
-    
+    let mut model_id = uuid::Uuid::nil();
     while !window.should_close() {
 
         //Update
@@ -53,6 +54,9 @@ fn main() {
                     }
                     glfw::WindowEvent::Key(Key, Scancode, Action, Modifiers) => {
                         if Action == glfw::Action::Press {
+                            if Key == glfw::Key::B {
+                                message_queue.push_back(Message::LoadStaticModel { path: String::from("assets/models/cube.obj") });
+                            }
                             message_queue.push_back(Message::KeyPressed(Key as u32, Scancode as u32));
                         } else if Action == glfw::Action::Release {
                             message_queue.push_back(Message::KeyReleased(Key as u32, Scancode as u32));
@@ -65,7 +69,10 @@ fn main() {
             
             //Dispatch message
             while let Some(event) = message_queue.pop_front() {
-                renderer.on_message(event.clone());
+                renderer.on_message(event.clone(), &mut message_queue, &cvar);
+                if let Message::StaticModelReady { id } = event {
+                    model_id = id;
+                }
                 if let Message::WindowResized(w, h) = event {
                     width = w;
                     height = h;
@@ -75,7 +82,11 @@ fn main() {
 
         //Render
         {
+            if model_id != uuid::Uuid::nil() {
+                renderer.add_draw_command(renderer::DrawCommands::StaticModel { id: model_id });
+            }
             renderer.render(&cvar);
+            renderer.clear_draw_commands();
         }
         
     }
